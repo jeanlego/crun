@@ -1,7 +1,40 @@
 #!/bin/bash
 CRUN_VERSION="RC 1.0"
 
-HELP=""
+HELP="
+This program compiles and run C code from command line, ex: crun 'print(\"%d\",getuid());'
+it can be used as the #! shebang in a file, can read from stdin and also via an editor
+
+	Usage: crun [options] [gcc flags] [ < - | stdin | /dev/stdin> | <path/to/file>  | 'C function ...' ]
+	--help                  print this help message
+	--debug                 --verbose and --clean_all
+	--verbose               turns bash -x on
+	--clean_cache           clears the binary cache
+	--clean_all             clears the binary cache and the source files
+	--install               install crun @ /bin/crun and exit
+
+	* if you wish to include more header files files use -include <path/to/header> as gcc flag, 
+
+	example usage:
+
+		$> crun 'printf(\"hello world\");'
+
+		$> echo 'printf(\"hello world\");' | crun --clean_cache -Wall    # would clean the cache , compile with Wall the echoed function 
+
+		we can also use a file!
+
+		'''/some/path/to/a/file
+		#!/bin/crun
+		printf(\"hello world\");
+		'''
+		$> crun --clean_cache -Wall /some/path/to/a/file
+
+		$> crun                                                         # this opens an editor
+
+		$> crun <<EOF                                                   # using heredoc
+		printf(\"hello world\");
+		EOF
+"
 
 #defaults
 CRUN_DIR=~/.crun
@@ -26,6 +59,10 @@ while true; do
 	if [ "${PARSE_ARG}" == "true" ];
 	then
 		case $1 in
+			--help)
+				echo "${HELP}"
+				exit 0
+				;;
 			--debug)
 				VERBOSE="true"
 				CLEAN_ALL="true"
@@ -266,7 +303,7 @@ function _generate_C_from_stdin() {
 		done
 		echo ";} return errno;}" >> "${CRUN_USER_INPUT}"
 	else
-		printf "int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
+		printf "/* this is the crun program main function, if you wich to know other usage, please rerun with --help */ \n\n int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
 		_set_editor
 		${CRUN_EDITOR} "${CRUN_USER_INPUT}"
 	fi
