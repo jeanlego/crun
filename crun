@@ -1,35 +1,9 @@
 #!/bin/bash
 CRUN_VERSION="RC 1.0"
 
-if [ "$0" != "/bin/crun" ];
-then
-	if [ "_${DEBUG_CRUN}" != "_" ] || [ ! -f /bin/crun ] || [ "_$(head -n 2 /bin/crun | grep CRUN_VERSION | cut -d '"' -f 2)" != "_${CRUN_VERSION}" ];
-	then
-		echo "installing /bin/crun"
-		sudo /bin/bash -c "rm /bin/crun &> /dev/null; cp $0 /bin/crun"
-	fi
+HELP=""
 
-	/bin/crun "$@"
-	exit $?
-fi
-
-if [ "_${DEBUG_CRUN}" != "_" ];
-then
-	set -x
-fi
-
-CRUN_EDITOR=$(git var GIT_EDITOR)
-[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${VISUAL}"
-[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${EDITOR}"
-[ "_${CRUN_EDITOR}" == "_" ] && command -v vim &> /dev/null && CRUN_EDITOR="vim"
-[ "_${CRUN_EDITOR}" == "_" ] && command -v nano &> /dev/null && CRUN_EDITOR="nano"
-[ "_${CRUN_EDITOR}" == "_" ] && command -v vi &> /dev/null && CRUN_EDITOR="vi"
-
-
-arg_count=$#
-(( arg_count > 0 )) && input="${*:$#}"
-(( arg_count > 1 )) && gcc_arg="${*%${!#}}"
-
+#defaults
 CRUN_DIR=~/.crun
 
 CACHE_DIR=${CRUN_DIR}/cache
@@ -38,6 +12,80 @@ VERSION_FILE="${CRUN_DIR}/version"
 HEADER_FILE="${CRUN_DIR}/main.h"
 MAIN_FILE="${CRUN_DIR}/main.c"
 MAIN_OBJ_FILE="${CRUN_DIR}/main.o"
+
+CLEAN_CACHE="false"
+CLEAN_ALL="false"
+VERBOSE="false"
+CRUN_EDITOR="vi"
+
+input=""
+gcc_arg=""
+
+PARSE_ARG="true"
+while true; do
+	if [ "${PARSE_ARG}" == "true" ];
+	then
+		case $1 in
+			--debug)
+				VERBOSE="true"
+				CLEAN_ALL="true"
+				shift
+				;;
+			--verbose)
+				VERBOSE="true"
+				shift
+				;;
+			--clean_cache)
+				CLEAN_CACHE="true"
+				shift
+				;;
+			--clean_all)
+				CLEAN_ALL="true"
+				shift
+				;;
+			--install)
+				echo "installing crun @ /bin/crun"
+				sudo /bin/bash -c "rm /bin/crun &> /dev/null; cp $0 /bin/crun"
+				shift
+				exit $?
+				;;
+			*)
+				PARSE_ARG="false"
+				;;
+		esac
+	else
+		if [ "_$1" == "_" ];
+		then
+			break;
+		else
+			gcc_arg="${gcc_arg} ${input}"
+			input="$1"
+			shift
+		fi
+	fi
+
+
+
+done
+
+if [ "_${VERBOSE}" == "_true" ];
+then
+	set -x
+fi
+
+function _set_editor() {
+	CRUN_EDITOR=$(git var GIT_EDITOR)
+	[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${VISUAL}"
+	[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${EDITOR}"
+	[ "_${CRUN_EDITOR}" == "_" ] && command -v vim &> /dev/null && CRUN_EDITOR="vim"
+	[ "_${CRUN_EDITOR}" == "_" ] && command -v nano &> /dev/null && CRUN_EDITOR="nano"
+	[ "_${CRUN_EDITOR}" == "_" ] && command -v vi &> /dev/null && CRUN_EDITOR="vi"
+}
+
+# # first arguments are for the script
+# arg_count=$#
+# (( arg_count > 0 )) && input="${*:$#}"
+# (( arg_count > 1 )) && gcc_arg="${*%${!#}}"
 
 function _generate_header() {
 echo "
@@ -152,15 +200,6 @@ function _compile_main_o() {
 	gcc -c "${MAIN_FILE}" -o "${MAIN_OBJ_FILE}"
 }
 
-function _get_version() {
-	if [ -f "${VERSION_FILE}" ]; 
-	then 
-		CRUN_LOCAL_VERSION="$(cat ${VERSION_FILE})"
-	else
-		CRUN_LOCAL_VERSION=""
-	fi
-}
-
 function _update_version() {
 	echo "${CRUN_VERSION}" > ${VERSION_FILE}
 }
@@ -169,30 +208,33 @@ function _clean_cache() {
 	[ -d ${CACHE_DIR} ] && rm -Rf ${CACHE_DIR}
 	mkdir -p ${CACHE_DIR}
 	echo "clearing cache"
+	CLEAN_ALL="false"
 }
 
 function _clean_all() {
 	[ -d ${CRUN_DIR} ] && rm -Rf ${CRUN_DIR}
 	mkdir -p ${CRUN_DIR} && mkdir -p ${CACHE_DIR}
 	echo "regenerating source files and clearing cache"
+	CLEAN_CACHE="false"
 }
 
 function _source_has_changed() {
-	if 	[ "_${DEBUG_CRUN}" != "_" ] ||
+	if 	[ "_${CLEAN_ALL}" == "_true" ] ||
 		[ ! -d ${CRUN_DIR} ] ||
 		[ ! -d ${CACHE_DIR} ] ||
-		[ "_${CRUN_VERSION}" != "_${CRUN_LOCAL_VERSION}" ] || 
+		[ ! -f "${VERSION_FILE}" ]
 		[ ! -f "${MAIN_OBJ_FILE}" ] ||
 		[ ! -f "${MAIN_FILE}" ] ||
-		[ ! -f "${HEADER_FILE}" ];
+		[ ! -f "${HEADER_FILE}" ] ||
+		[ "_${CRUN_VERSION}" != "_$(cat ${VERSION_FILE})" ]
 	then
-		return 0
+		echo "true"
 	else
-		return 1
+		echo "false"
 	fi
 }
 
-CRUN_USER_INPUT="${CACHE_DIR}/user_input"
+CRUN_USER_INPUT="${CACHE_DIR}/stdin"
 function _generate_C_from_file() {
 	CRUN_USER_INPUT="${CACHE_DIR}/$(basename ${input})"
 
@@ -208,7 +250,9 @@ function _generate_C_from_file() {
 }
 
 function _generate_C_from_args() {
-	echo "int crun(void){{ ${input} ;} return errno;}" > "${CRUN_USER_INPUT}"
+	echo "int crun(void){
+		{${input};} 
+		return errno;}" > "${CRUN_USER_INPUT}"
 }
 
 function _generate_C_from_stdin() {
@@ -223,6 +267,7 @@ function _generate_C_from_stdin() {
 		echo ";} return errno;}" >> "${CRUN_USER_INPUT}"
 	else
 		printf "int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
+		_set_editor
 		${CRUN_EDITOR} "${CRUN_USER_INPUT}"
 	fi
 }
@@ -231,9 +276,7 @@ function _hash_C_file() {
 	echo "${FILE_TXT}" | cksum "${CRUN_USER_INPUT}" | cut -d ' ' -f 1
 }
 
-_get_version
-
-if _source_has_changed 
+if  [ "$(_source_has_changed)" == "true" ]
 then
 	_clean_all &&
 	_generate_header &&
@@ -242,37 +285,49 @@ then
 	_update_version
 fi
 
-if [ "_${input}" == "_" ] || [ "${input}" == "$0" ] || [ "${input}" == "-" ];
+if  [ "${CLEAN_CACHE}" == "true" ]
 then
-	_generate_C_from_stdin
-elif [ ! -f "${input}" ];
-then
-	_generate_C_from_args
-else
-	_generate_C_from_file
+	_clean_cache
 fi
 
-cd ${CACHE_DIR}
+
+case _${input} in
+	_|_-|_/dev/stdin|_stdin)
+		_generate_C_from_stdin
+		;;
+	*)
+		if [ -f "${input}" ];
+		then
+			_generate_C_from_file
+		else
+			_generate_C_from_args
+		fi
+	;;
+esac
+
+RUNDIR=$(dirname "${CRUN_USER_INPUT}")
+CRUN_USER_INPUT=$(basename "${CRUN_USER_INPUT}")
+cd "${RUNDIR}" || ( echo "Unexepected error, ${RUNDIR} could not be created" && exit 1 )
 
 HASHED_C_FILE="$(_hash_C_file)"
 if [ ! -f "${HASHED_C_FILE}" ];
 then
 	if [ -f "${CRUN_USER_INPUT}" ];
 	then
-		gcc ${gcc_arg} -x c -c -include ${HEADER_FILE} -o ${HASHED_C_FILE}.o "${CRUN_USER_INPUT}"
+		gcc ${gcc_arg} -x c -c -include "${HEADER_FILE}" -o "${HASHED_C_FILE}.o" "${CRUN_USER_INPUT}"
 		rm "${CRUN_USER_INPUT}"
 	fi
 
 	if [ -f "${HASHED_C_FILE}.o" ]; 
 	then
-		gcc -o ${HASHED_C_FILE} ${MAIN_OBJ_FILE} ${HASHED_C_FILE}.o &&
-		rm ${HASHED_C_FILE}.o
+		gcc -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o" &&
+		rm "${HASHED_C_FILE}.o"
 	fi
 fi
 
 if [ -f "${HASHED_C_FILE}" ];
 then
-	./${HASHED_C_FILE}
+	"./${HASHED_C_FILE}"
 	exit $?
 else
 	exit 1
