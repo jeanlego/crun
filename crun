@@ -208,7 +208,7 @@ function _generate_C_from_file() {
 }
 
 function _generate_C_from_args() {
-	echo "int crun(void){{ ${input} $;} return errno;}" > "${CRUN_USER_INPUT}"
+	echo "int crun(void){{ ${input} ;} return errno;}" > "${CRUN_USER_INPUT}"
 }
 
 function _generate_C_from_stdin() {
