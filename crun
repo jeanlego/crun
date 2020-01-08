@@ -1,6 +1,30 @@
 #!/bin/bash
+CRUN_VERSION="RC 1.0"
 
-THIS_SCRIPT_VERSION="RC 1.0"
+if [ "$0" != "/bin/crun" ];
+then
+	if [ "_${DEBUG_CRUN}" != "_" ] || [ ! -f /bin/crun ] || [ "_$(head -n 2 /bin/crun | grep CRUN_VERSION | cut -d '"' -f 2)" != "_${CRUN_VERSION}" ];
+	then
+		echo "installing /bin/crun"
+		sudo /bin/bash -c "rm /bin/crun &> /dev/null; cp $0 /bin/crun"
+	fi
+
+	/bin/crun "$@"
+	exit $?
+fi
+
+if [ "_${DEBUG_CRUN}" != "_" ];
+then
+	set -x
+fi
+
+CRUN_EDITOR=$(git var GIT_EDITOR)
+[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${VISUAL}"
+[ "_${CRUN_EDITOR}" == "_" ] && CRUN_EDITOR="${EDITOR}"
+[ "_${CRUN_EDITOR}" == "_" ] && command -v vim &> /dev/null && CRUN_EDITOR="vim"
+[ "_${CRUN_EDITOR}" == "_" ] && command -v nano &> /dev/null && CRUN_EDITOR="nano"
+[ "_${CRUN_EDITOR}" == "_" ] && command -v vi &> /dev/null && CRUN_EDITOR="vi"
+
 
 arg_count=$#
 (( arg_count > 0 )) && input="${*:$#}"
@@ -107,9 +131,11 @@ extern int errno;
 int crun(void);
 
 " > ${HEADER_FILE}
+
 }
 
 function _generate_main() {
+
 echo "
 #include \"${HEADER_FILE}\"
 
@@ -119,6 +145,7 @@ int main(void)
 	return crun();
 }
 " > ${MAIN_FILE}
+
 }
 
 function _compile_main_o() {
@@ -126,11 +153,16 @@ function _compile_main_o() {
 }
 
 function _get_version() {
-	[ -f "${VERSION_FILE}" ] && source "${VERSION_FILE}"
+	if [ -f "${VERSION_FILE}" ]; 
+	then 
+		CRUN_LOCAL_VERSION="$(cat ${VERSION_FILE})"
+	else
+		CRUN_LOCAL_VERSION=""
+	fi
 }
 
 function _update_version() {
-	echo "EXECUTABLE_VERSION=${THIS_SCRIPT_VERSION}" > ${VERSION_FILE}
+	echo "${CRUN_VERSION}" > ${VERSION_FILE}
 }
 
 function _clean_cache() {
@@ -149,7 +181,7 @@ function _source_has_changed() {
 	if 	[ "_${DEBUG_CRUN}" != "_" ] ||
 		[ ! -d ${CRUN_DIR} ] ||
 		[ ! -d ${CACHE_DIR} ] ||
-		[ "_${EXECUTABLE_VERSION}" != "_${THIS_SCRIPT_VERSION}" ] || 
+		[ "_${CRUN_VERSION}" != "_${CRUN_LOCAL_VERSION}" ] || 
 		[ ! -f "${MAIN_OBJ_FILE}" ] ||
 		[ ! -f "${MAIN_FILE}" ] ||
 		[ ! -f "${HEADER_FILE}" ];
@@ -160,36 +192,43 @@ function _source_has_changed() {
 	fi
 }
 
-fn_declare="int crun(void){{"
-fn_tail=";} return errno;}"
-FILE_TXT=""
-
+CRUN_USER_INPUT="${CACHE_DIR}/user_input"
 function _generate_C_from_file() {
+	CRUN_USER_INPUT="${CACHE_DIR}/$(basename ${input})"
+
 	LINE_SKIP="1"
 	if [ "_$(head --lines=1 ${input} | grep '#!')" != "_" ];
 	then	
 		LINE_SKIP=$(( ${LINE_SKIP} + 1 ))
 	fi
 
-	FILE_TXT="${fn_declare}
+	echo "int crun(void){{
 	$(tail --lines=+${LINE_SKIP} ${input})
-	${fn_tail}"
+	;} return errno;}" > "${CRUN_USER_INPUT}"
 }
 
 function _generate_C_from_args() {
-	FILE_TXT="${fn_declare} ${input} ${fn_tail}"
+	echo "int crun(void){{ ${input} $;} return errno;}" > "${CRUN_USER_INPUT}"
 }
 
 function _generate_C_from_stdin() {
-	FILE_TXT="${fn_declare}"
-	while read input_text; do
-		FILE_TXT="${FILE_TXT} ${input_text}"
-	done
-	FILE_TXT="${FILE_TXT} ${fn_tail}"
+
+	if [ ! -t 0 ];
+	then
+		echo "int crun(void){{" > "${CRUN_USER_INPUT}"
+
+		while read -r input_text; do
+			echo "${input_text}" >> "${CRUN_USER_INPUT}"
+		done
+		echo ";} return errno;}" >> "${CRUN_USER_INPUT}"
+	else
+		printf "int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
+		${CRUN_EDITOR} "${CRUN_USER_INPUT}"
+	fi
 }
 
 function _hash_C_file() {
-	echo "${FILE_TXT}" | cksum | cut -d ' ' -f 1
+	echo "${FILE_TXT}" | cksum "${CRUN_USER_INPUT}" | cut -d ' ' -f 1
 }
 
 _get_version
@@ -203,7 +242,6 @@ then
 	_update_version
 fi
 
-INPUT_FILENAME=""
 if [ "_${input}" == "_" ] || [ "${input}" == "$0" ] || [ "${input}" == "-" ];
 then
 	_generate_C_from_stdin
@@ -212,7 +250,6 @@ then
 	_generate_C_from_args
 else
 	_generate_C_from_file
-	INPUT_FILENAME="$(basename ${input})"
 fi
 
 cd ${CACHE_DIR}
@@ -220,18 +257,15 @@ cd ${CACHE_DIR}
 HASHED_C_FILE="$(_hash_C_file)"
 if [ ! -f "${HASHED_C_FILE}" ];
 then
-	if [ "_${INPUT_FILENAME}" != "_" ];
+	if [ -f "${CRUN_USER_INPUT}" ];
 	then
-		echo "${FILE_TXT}" > ${INPUT_FILENAME}
-		gcc ${gcc_arg} -x c -c -include ${HEADER_FILE} -o ${HASHED_C_FILE}.o ${INPUT_FILENAME}
-		rm ${INPUT_FILENAME}
-	else
-		echo "${FILE_TXT}" | gcc ${gcc_arg} -x c -c -include ${HEADER_FILE} -o "${HASHED_C_FILE}.o" -
+		gcc ${gcc_arg} -x c -c -include ${HEADER_FILE} -o ${HASHED_C_FILE}.o "${CRUN_USER_INPUT}"
+		rm "${CRUN_USER_INPUT}"
 	fi
 
 	if [ -f "${HASHED_C_FILE}.o" ]; 
 	then
-		gcc -o ${HASHED_C_FILE} ${HASHED_C_FILE}.o ${MAIN_OBJ_FILE} &&
+		gcc -o ${HASHED_C_FILE} ${MAIN_OBJ_FILE} ${HASHED_C_FILE}.o &&
 		rm ${HASHED_C_FILE}.o
 	fi
 fi
@@ -239,7 +273,7 @@ fi
 if [ -f "${HASHED_C_FILE}" ];
 then
 	./${HASHED_C_FILE}
-	exit $!
+	exit $?
 else
 	exit 1
 fi
