@@ -15,7 +15,7 @@ it can be used as the #! shebang in a file, can read from stdin and also via an 
 
 	* if you wish to include more header files files use -include <path/to/header> as gcc flag, 
 	** ALL posix header are already included by default, no need to include more
-	
+
 	example usage:
 
 		$> crun 'printf(\"hello world\");'
@@ -85,6 +85,10 @@ while true; do
 				echo "installing crun @ /bin/crun"
 				sudo /bin/bash -c "rm /bin/crun &> /dev/null; cp $0 /bin/crun"
 				shift
+				if [ "_$1" != "_" ]
+				then
+					/bin/crun "$@"
+				fi
 				exit $?
 				;;
 			*)
