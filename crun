@@ -102,12 +102,12 @@ while true; do
 				shift
 				;;
 			--install)
-				echo "installing crun @ /bin/crun"
-				sudo /bin/bash -c "rm /bin/crun &> /dev/null; cp $0 /bin/crun"
+				echo "installing crun @ /usr/bin/crun"
+				sudo /bin/bash -c "rm /usr/bin/crun &> /dev/null; cp $0 /usr/bin/crun"
 				shift
 				if [ "_$1" != "_" ]
 				then
-					/bin/crun "$@"
+					/usr/bin/crun "$@"
 				fi
 				exit $?
 				;;
