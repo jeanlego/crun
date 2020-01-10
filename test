@@ -1,0 +1,2 @@
+#!/bin/crun
+printf("help world");

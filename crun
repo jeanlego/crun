@@ -5,7 +5,7 @@ HELP="
 This program compiles and run C code from command line, ex: crun 'print(\"%d\",getuid());'
 it can be used as the #! shebang in a file, can read from stdin and also via an editor
 
-	Usage: crun [options] [gcc flags] [ < - | stdin | /dev/stdin> | <path/to/file>  | 'C function ...' ]
+	Usage: crun [options] [CC flags] [ < - | stdin | /dev/stdin> | <path/to/file>  | 'C function ...' ]
 	--help                  print this help message
 	--debug                 --verbose and --clean_all
 	--verbose               turns bash -x on
@@ -13,8 +13,9 @@ it can be used as the #! shebang in a file, can read from stdin and also via an 
 	--clean_all             clears the binary cache and the source files
 	--install               install crun @ /bin/crun and exit
 
-	* if you wish to include more header files files use -include <path/to/header> as gcc flag, 
+	* if you wish to include more header files files use -include <path/to/header> as CC flag, 
 	** ALL posix header are already included by default, no need to include more
+	*** This program uses the CC environment variable to compile otherwise fallback to gcc, then clang, then error
 
 	example usage:
 
@@ -53,7 +54,26 @@ VERBOSE="false"
 CRUN_EDITOR="vi"
 
 input=""
-gcc_arg=""
+	
+# check that the current CC is usable otherwise unset
+if [ "_${CC}" != "_" ];
+then
+	command -v "${CC}" &> /dev/null
+else
+	unset CC
+fi
+
+[ "_${CC}" == "_" ] && command -v gcc &> /dev/null && CC="gcc"
+[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang"
+
+# check that the current CC is usable otherwise exit and error
+if [ "_${CC}" == "_" ];
+then
+	echo "Unable to find a C compiler (CC=${CC} is not valid and gcc and clang don't exist )"
+	exit 1
+fi
+
+cc_args=""
 
 PARSE_ARG="true"
 while true; do
@@ -100,7 +120,7 @@ while true; do
 		then
 			break;
 		else
-			gcc_arg="${gcc_arg} ${input}"
+			cc_args="${cc_args} ${input}"
 			input="$1"
 			shift
 		fi
@@ -127,7 +147,7 @@ function _set_editor() {
 # # first arguments are for the script
 # arg_count=$#
 # (( arg_count > 0 )) && input="${*:$#}"
-# (( arg_count > 1 )) && gcc_arg="${*%${!#}}"
+# (( arg_count > 1 )) && cc_args="${*%${!#}}"
 
 function _generate_header() {
 echo "
@@ -250,29 +270,26 @@ function _clean_cache() {
 	[ -d ${CACHE_DIR} ] && rm -Rf ${CACHE_DIR}
 	mkdir -p ${CACHE_DIR}
 	echo "clearing cache"
-	CLEAN_ALL="false"
+	CLEAN_CACHE="false"
 }
 
 function _clean_all() {
 	[ -d ${CRUN_DIR} ] && rm -Rf ${CRUN_DIR}
 	mkdir -p ${CRUN_DIR} && mkdir -p ${CACHE_DIR}
 	echo "regenerating source files and clearing cache"
-	CLEAN_CACHE="false"
+	CLEAN_ALL="false"
 }
 
 function _source_has_changed() {
-	if 	[ "_${CLEAN_ALL}" == "_true" ] ||
-		[ ! -d ${CRUN_DIR} ] ||
+	if	[ ! -d ${CRUN_DIR} ] ||
 		[ ! -d ${CACHE_DIR} ] ||
 		[ ! -f "${VERSION_FILE}" ]
 		[ ! -f "${MAIN_OBJ_FILE}" ] ||
 		[ ! -f "${MAIN_FILE}" ] ||
 		[ ! -f "${HEADER_FILE}" ] ||
-		[ "_${CRUN_VERSION}" != "_$(cat ${VERSION_FILE})" ]
+		[ "_${CRUN_VERSION}" != "_$(cat ${VERSION_FILE})" ];
 	then
-		echo "true"
-	else
-		echo "false"
+		CLEAN_ALL="true"
 	fi
 }
 
@@ -314,11 +331,9 @@ function _generate_C_from_stdin() {
 	fi
 }
 
-function _hash_C_file() {
-	echo "${FILE_TXT}" | cksum "${CRUN_USER_INPUT}" | cut -d ' ' -f 1
-}
+_source_has_changed
 
-if  [ "$(_source_has_changed)" == "true" ]
+if  [ "${CLEAN_ALL}" == "true" ]
 then
 	_clean_all &&
 	_generate_header &&
@@ -349,14 +364,14 @@ esac
 
 RUNDIR=$(dirname "${CRUN_USER_INPUT}")
 CRUN_USER_INPUT=$(basename "${CRUN_USER_INPUT}")
-cd "${RUNDIR}" || ( echo "Unexepected error, ${RUNDIR} could not be created" && exit 1 )
+HASHED_C_FILE="$(cksum "${CRUN_USER_INPUT}" | cut -d ' ' -f 1)"
 
-HASHED_C_FILE="$(_hash_C_file)"
+cd "${RUNDIR}" || ( echo "Unexepected error, ${RUNDIR} could not be created" && exit 1 )
 if [ ! -f "${HASHED_C_FILE}" ];
 then
 	if [ -f "${CRUN_USER_INPUT}" ];
 	then
-		gcc ${gcc_arg} -x c -c -include "${HEADER_FILE}" -o "${HASHED_C_FILE}.o" "${CRUN_USER_INPUT}"
+		gcc ${cc_args} -x c -c -include "${HEADER_FILE}" -o "${HASHED_C_FILE}.o" "${CRUN_USER_INPUT}"
 		rm "${CRUN_USER_INPUT}"
 	fi
 
