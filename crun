@@ -75,7 +75,7 @@ then
 fi
 
 # silence some clang warning
-COMPILE="${CC} -std=iso9899:1999 -x c -Wno-unused-command-line-argument"
+COMPILE="${CC} -std=iso9899:1999 -Wno-unused-command-line-argument"
 
 PARSE_ARG="true"
 while true; do
@@ -361,7 +361,7 @@ HASHED_C_FILE="$(cksum "${INPUT_NAME}" | cut -d ' ' -f 1)"
 
 if [ ! -f "${HASHED_C_FILE}" ];
 then
-	[ -f "${INPUT_NAME}" ] && ${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${INPUT_NAME}"
+	[ -f "${INPUT_NAME}" ] && ${COMPILE} -x c -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${INPUT_NAME}"
 	[ -f "${HASHED_C_FILE}.o" ] && ${COMPILE} -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o"
 fi
 
