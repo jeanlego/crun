@@ -364,18 +364,12 @@ HASHED_C_FILE="$(cksum "${INPUT_NAME}" | cut -d ' ' -f 1)"
 
 if [ ! -f "${HASHED_C_FILE}" ];
 then
-	if [ -f "${INPUT_NAME}" ];
-	then
-		${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${INPUT_NAME}"
-		rm "${INPUT_NAME}"
-	fi
-
-	if [ -f "${HASHED_C_FILE}.o" ]; 
-	then
-		${COMPILE} -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o" &&
-		rm "${HASHED_C_FILE}.o"
-	fi
+	[ -f "${INPUT_NAME}" ] && ${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${INPUT_NAME}"
+	[ -f "${HASHED_C_FILE}.o" ] && ${COMPILE} -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o"
 fi
+
+[ -f "${HASHED_C_FILE}.o" ] && rm "${HASHED_C_FILE}.o"
+[ -f "${INPUT_NAME}" ] && rm "${INPUT_NAME}"
 
 if [ -f "${HASHED_C_FILE}" ];
 then
