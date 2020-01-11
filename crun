@@ -64,7 +64,8 @@ else
 fi
 
 [ "_${CC}" == "_" ] && command -v gcc &> /dev/null && CC="gcc"
-[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang"
+# silence some clang warning
+[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang -Wunused-command-line-argument"
 
 # check that the current CC is usable otherwise exit and error
 if [ "_${CC}" == "_" ];
@@ -288,9 +289,7 @@ function _source_has_changed() {
 	fi
 }
 
-CRUN_USER_INPUT="${CACHE_DIR}/stdin"
 function _generate_C_from_file() {
-	CRUN_USER_INPUT="${CACHE_DIR}/$(basename ${input})"
 
 	LINE_SKIP="1"
 	if [ "_$(head --lines=1 ${input} | grep '#!')" != "_" ];
@@ -300,29 +299,29 @@ function _generate_C_from_file() {
 
 	echo "int crun(void){{
 	$(tail --lines=+${LINE_SKIP} ${input})
-	;} return errno;}" > "${CRUN_USER_INPUT}"
+	;} return errno;}" > "$1"
 }
 
 function _generate_C_from_args() {
 	echo "int crun(void){
 		{${input};} 
-		return errno;}" > "${CRUN_USER_INPUT}"
+		return errno;}" > "$1"
 }
 
 function _generate_C_from_stdin() {
 
 	if [ ! -t 0 ];
 	then
-		echo "int crun(void){{" > "${CRUN_USER_INPUT}"
+		echo "int crun(void){{" > "$1"
 
 		while read -r input_text; do
-			echo "${input_text}" >> "${CRUN_USER_INPUT}"
+			echo "${input_text}" >> "$1"
 		done
-		echo ";} return errno;}" >> "${CRUN_USER_INPUT}"
+		echo ";} return errno;}" >> "$1"
 	else
 		printf "/* this is the crun program main function, if you wich to know other usage, please rerun with --help */ \n\n int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
 		_set_editor
-		${CRUN_EDITOR} "${CRUN_USER_INPUT}"
+		${CRUN_EDITOR} "$1"
 	fi
 }
 
@@ -342,32 +341,33 @@ then
 	_clean_cache
 fi
 
-
+#default
+INPUT_NAME="arg"
 case _${input} in
-	_|_-|_/dev/stdin|_stdin)
-		_generate_C_from_stdin
+	_|_-|_/dev/stdin|_stdin)	INPUT_NAME="stdin"
 		;;
-	*)
-		if [ -f "${input}" ];
-		then
-			_generate_C_from_file
-		else
-			_generate_C_from_args
-		fi
+	*)	[ -f "${input}" ] && 	INPUT_NAME="$(basename ${input})"
 	;;
 esac
 
-RUNDIR=$(dirname "${CRUN_USER_INPUT}")
-CRUN_USER_INPUT=$(basename "${CRUN_USER_INPUT}")
-HASHED_C_FILE="$(cksum "${CRUN_USER_INPUT}" | cut -d ' ' -f 1)"
+TEMP_INPUT="${CACHE_DIR}/${INPUT_NAME}"
+touch "${TEMP_INPUT}"
 
-cd "${RUNDIR}" || ( echo "Unexepected error, ${RUNDIR} could not be created" && exit 1 )
+case "${INPUT_NAME}" in
+	arg) 	_generate_C_from_args "${TEMP_INPUT}" ;;
+	stdin)	_generate_C_from_stdin "${TEMP_INPUT}" ;;
+	*)		_generate_C_from_file "${TEMP_INPUT}" ;;
+esac
+
+cd "${CACHE_DIR}" || ( echo "Unexepected error, ${CACHE_DIR} could not be created" && exit 1 )
+HASHED_C_FILE="$(cksum "${INPUT_NAME}" | cut -d ' ' -f 1)"
+
 if [ ! -f "${HASHED_C_FILE}" ];
 then
-	if [ -f "${CRUN_USER_INPUT}" ];
+	if [ -f "${INPUT_NAME}" ];
 	then
-		${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${CRUN_USER_INPUT}"
-		rm "${CRUN_USER_INPUT}"
+		${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${INPUT_NAME}"
+		rm "${INPUT_NAME}"
 	fi
 
 	if [ -f "${HASHED_C_FILE}.o" ]; 
