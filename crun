@@ -63,9 +63,9 @@ else
 	unset CC
 fi
 
+[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang"
 [ "_${CC}" == "_" ] && command -v gcc &> /dev/null && CC="gcc"
-# silence some clang warning
-[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang -Wno-unused-command-line-argument"
+
 
 # check that the current CC is usable otherwise exit and error
 if [ "_${CC}" == "_" ];
@@ -74,7 +74,8 @@ then
 	exit 1
 fi
 
-COMPILE="${CC} -std=iso9899:1999"
+# silence some clang warning
+COMPILE="${CC} -std=iso9899:1999 -Wno-unused-command-line-argument"
 
 PARSE_ARG="true"
 while true; do
