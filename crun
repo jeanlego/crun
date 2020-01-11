@@ -298,27 +298,23 @@ function _generate_C_from_file() {
 		LINE_SKIP=$(( ${LINE_SKIP} + 1 ))
 	fi
 
-	echo "int crun(void){{
-	$(tail --lines=+${LINE_SKIP} ${input})
-	;} return errno;}" > "$1"
+	printf "int crun(void){{\n$(tail --lines=+${LINE_SKIP} ${input});}\nreturn errno;}" > "$1"
 }
 
 function _generate_C_from_args() {
-	echo "int crun(void){
-		{${input};} 
-		return errno;}" > "$1"
+	printf "int crun(void){{\n{${input};}\nreturn errno;}" > "$1"
 }
 
 function _generate_C_from_stdin() {
 
 	if [ ! -t 0 ];
 	then
-		echo "int crun(void){{" > "$1"
+		printf "int crun(void){{\n" > "$1"
 
 		while read -r input_text; do
-			echo "${input_text}" >> "$1"
+			printf "${input_text}\n" >> "$1"
 		done
-		echo ";} return errno;}" >> "$1"
+		printf ";}\nreturn errno;}" >> "$1"
 	else
 		printf "/* this is the crun program main function, if you wich to know other usage, please rerun with --help */ \n\n int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "$1"
 		_set_editor
