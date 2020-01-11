@@ -298,18 +298,18 @@ function _generate_C_from_file() {
 		LINE_SKIP=$(( ${LINE_SKIP} + 1 ))
 	fi
 
-	printf "int crun(void){{\n$(tail --lines=+${LINE_SKIP} ${input});}\nreturn errno;}" > "$1"
+	printf "int crun(void){\n{$(tail --lines=+${LINE_SKIP} ${input});}\nreturn errno;}" > "$1"
 }
 
 function _generate_C_from_args() {
-	printf "int crun(void){{\n{${input};}\nreturn errno;}" > "$1"
+	printf "int crun(void){\n{${input};}\nreturn errno;}" > "$1"
 }
 
 function _generate_C_from_stdin() {
 
 	if [ ! -t 0 ];
 	then
-		printf "int crun(void){{\n" > "$1"
+		printf "int crun(void){\n{" > "$1"
 
 		while read -r input_text; do
 			printf "${input_text}\n" >> "$1"
