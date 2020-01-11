@@ -11,7 +11,7 @@ it can be used as the #! shebang in a file, can read from stdin and also via an 
 	--verbose               turns bash -x on
 	--clean_cache           clears the binary cache
 	--clean_all             clears the binary cache and the source files
-	--install               install crun @ /bin/crun and exit
+	--install               install crun @ /usr/bin/crun and exit
 
 	* if you wish to include more header files files use -include <path/to/header> as CC flag, 
 	** ALL posix header are already included by default, no need to include more
@@ -26,7 +26,7 @@ it can be used as the #! shebang in a file, can read from stdin and also via an 
 		we can also use a file!
 
 		'''/some/path/to/a/file
-		#!/bin/crun
+		#!/usr/bin/crun
 		printf(\"hello world\");
 		'''
 		$> crun --clean_cache -Wall /some/path/to/a/file
@@ -102,12 +102,12 @@ while true; do
 				shift
 				;;
 			--install)
-				echo "installing crun @ /usr/bin/crun"
-				sudo /bin/bash -c "rm /usr/bin/crun &> /dev/null; cp $0 /usr/bin/crun"
+				echo "installing crun @ /usr/usr/bin/crun"
+				sudo /bin/bash -c "rm /usr/usr/bin/crun &> /dev/null; cp $0 /usr/usr/bin/crun"
 				shift
 				if [ "_$1" != "_" ]
 				then
-					/usr/bin/crun "$@"
+					/usr/usr/bin/crun "$@"
 				fi
 				exit $?
 				;;
