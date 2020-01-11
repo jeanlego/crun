@@ -79,6 +79,9 @@ COMPILE="${CC} -std=iso9899:1999 -Wno-unused-command-line-argument"
 
 PARSE_ARG="true"
 while true; do
+	if [ ${VERBOSE} == "true" ];
+	then
+		echo "parsing $1 as script arg[${PARSE_ARG}]"
 	if [ "${PARSE_ARG}" == "true" ];
 	then
 		case $1 in
