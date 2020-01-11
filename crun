@@ -320,7 +320,7 @@ function _generate_C_from_stdin() {
 		done
 		echo ";} return errno;}" >> "$1"
 	else
-		printf "/* this is the crun program main function, if you wich to know other usage, please rerun with --help */ \n\n int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "${CRUN_USER_INPUT}"
+		printf "/* this is the crun program main function, if you wich to know other usage, please rerun with --help */ \n\n int crun(void)\n{\n\t\n\t\n\treturn errno;\n}\n" > "$1"
 		_set_editor
 		${CRUN_EDITOR} "$1"
 	fi
