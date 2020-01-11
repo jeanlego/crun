@@ -82,6 +82,8 @@ while true; do
 	if [ ${VERBOSE} == "true" ];
 	then
 		echo "parsing $1 as script arg[${PARSE_ARG}]"
+	fi
+	
 	if [ "${PARSE_ARG}" == "true" ];
 	then
 		case $1 in
