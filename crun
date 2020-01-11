@@ -75,7 +75,7 @@ then
 fi
 
 # silence some clang warning
-COMPILE="${CC} -std=iso9899:1999 -Wno-unused-command-line-argument"
+COMPILE="${CC} -std=iso9899:1999 -x c -Wno-unused-command-line-argument"
 
 PARSE_ARG="true"
 while true; do
