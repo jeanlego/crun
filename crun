@@ -73,7 +73,7 @@ then
 	exit 1
 fi
 
-cc_args=""
+COMPILE="${CC} -std=iso9899:1999"
 
 PARSE_ARG="true"
 while true; do
@@ -120,7 +120,7 @@ while true; do
 		then
 			break;
 		else
-			cc_args="${cc_args} ${input}"
+			COMPILE="${COMPILE} ${input}"
 			input="$1"
 			shift
 		fi
@@ -143,11 +143,6 @@ function _set_editor() {
 	[ "_${CRUN_EDITOR}" == "_" ] && command -v nano &> /dev/null && CRUN_EDITOR="nano"
 	[ "_${CRUN_EDITOR}" == "_" ] && command -v vi &> /dev/null && CRUN_EDITOR="vi"
 }
-
-# # first arguments are for the script
-# arg_count=$#
-# (( arg_count > 0 )) && input="${*:$#}"
-# (( arg_count > 1 )) && cc_args="${*%${!#}}"
 
 function _generate_header() {
 echo "
@@ -259,7 +254,7 @@ int main(void)
 }
 
 function _compile_main_o() {
-	gcc -c "${MAIN_FILE}" -o "${MAIN_OBJ_FILE}"
+	${COMPILE} -o "${MAIN_OBJ_FILE}" -c "${MAIN_FILE}" 
 }
 
 function _update_version() {
@@ -371,13 +366,13 @@ if [ ! -f "${HASHED_C_FILE}" ];
 then
 	if [ -f "${CRUN_USER_INPUT}" ];
 	then
-		gcc ${cc_args} -x c -c -include "${HEADER_FILE}" -o "${HASHED_C_FILE}.o" "${CRUN_USER_INPUT}"
+		${COMPILE} -o "${HASHED_C_FILE}.o" -include "${HEADER_FILE}" -c "${CRUN_USER_INPUT}"
 		rm "${CRUN_USER_INPUT}"
 	fi
 
 	if [ -f "${HASHED_C_FILE}.o" ]; 
 	then
-		gcc -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o" &&
+		${COMPILE} -o "${HASHED_C_FILE}" ${MAIN_OBJ_FILE} "${HASHED_C_FILE}.o" &&
 		rm "${HASHED_C_FILE}.o"
 	fi
 fi
