@@ -1,5 +1,5 @@
 #!/bin/bash
-CRUN_VERSION="RC 1.0"
+CRUN_VERSION="RC 1.1"
 
 HELP="
 This program compiles and run C code from command line, ex: crun 'print(\"%d\",getuid());'
@@ -171,7 +171,7 @@ echo "
 #include <stdint.h>
 #include <sys/un.h>
 #include <ctype.h>
-#include <mqueue.h>
+// #include <mqueue.h>
 #include <stdio.h>
 #include <sys/utsname.h>
 #include <dirent.h>
