@@ -65,7 +65,7 @@ fi
 
 [ "_${CC}" == "_" ] && command -v gcc &> /dev/null && CC="gcc"
 # silence some clang warning
-[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang -Wunused-command-line-argument"
+[ "_${CC}" == "_" ] && command -v clang &> /dev/null && CC="clang -Wno-unused-command-line-argument"
 
 # check that the current CC is usable otherwise exit and error
 if [ "_${CC}" == "_" ];
